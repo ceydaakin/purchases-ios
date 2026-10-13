@@ -207,7 +207,7 @@ final class CheckpointsManager {
         } catch CheckpointError.operationAlreadyInProgress {
             return .suppressed
         } catch {
-            return .suppressed
+            return .failed(error)
         }
     }
 
