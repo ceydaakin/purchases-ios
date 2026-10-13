@@ -643,17 +643,22 @@ final class CheckpointsManagerTests: TestCase {
         XCTAssertEqual(customerInfoSynchronizerCallCount, 0)
     }
 
-    func testContinueSynchronizesCustomerInfoAndReturnsNewEntitlements() async throws {
+    func testContinueReturnsCustomerStateAndEverythingObtainedDuringTheFlow() async throws {
+        let product = Self.storeProduct(identifier: "premium-product")
+        let terminalCustomerInfo = try Self.customerInfo(
+            activeEntitlements: ["premium", "pro"],
+            purchaseDatesByProductId: ["premium-product": Date(timeIntervalSince1970: 10)]
+        )
         var customerInfoSynchronizerCallCount = 0
         let manager = CheckpointsManager(
-            resolveCheckpoint: { _, _ in .matchedOffering(Self.offering()) },
+            resolveCheckpoint: { _, _ in .matchedOffering(Self.offering(products: [product])) },
             workflowPresenter: MockWorkflowPresenter(),
             cachedCustomerInfoProvider: {
                 try? Self.customerInfo(activeEntitlements: ["pro"])
             },
             customerInfoSynchronizer: {
                 customerInfoSynchronizerCallCount += 1
-                return try Self.customerInfo(activeEntitlements: ["premium", "pro"])
+                return terminalCustomerInfo
             }
         )
 
@@ -662,10 +667,26 @@ final class CheckpointsManagerTests: TestCase {
             params: .init(paywallPresenter: { _, completion in completion(.continued) })
         )
 
-        guard case let .completed(flowResult) = result else {
+        guard case let .completed(optionalFlowResult) = result else {
             return XCTFail("Expected a completed callback")
         }
-        XCTAssertEqual(flowResult?.obtainedEntitlements.map(\.entitlementInfo.identifier), ["premium"])
+        let flowResult = try XCTUnwrap(optionalFlowResult)
+        let obtainedEntitlement = try XCTUnwrap(flowResult.obtainedEntitlement("premium"))
+        let obtainedProduct = try XCTUnwrap(flowResult.obtainedProduct("premium-product"))
+
+        XCTAssertEqual(flowResult.customerInfo, terminalCustomerInfo)
+        XCTAssertEqual(flowResult.obtainedEntitlements, [obtainedEntitlement])
+        XCTAssertEqual(obtainedEntitlement.entitlementInfo.identifier, "premium")
+        XCTAssertEqual(flowResult.obtainedProducts, [obtainedProduct])
+        XCTAssertEqual(obtainedProduct.product.productIdentifier, "premium-product")
+
+        XCTAssertTrue(flowResult.didObtainEntitlement("premium"))
+        XCTAssertFalse(flowResult.didObtainEntitlement("unknown"))
+        XCTAssertTrue(flowResult.didObtainProduct("premium-product"))
+        XCTAssertFalse(flowResult.didObtainProduct("unknown"))
+
+        XCTAssertNil(flowResult.obtainedEntitlement("unknown"))
+        XCTAssertNil(flowResult.obtainedProduct("unknown"))
         XCTAssertEqual(customerInfoSynchronizerCallCount, 1)
     }
 
@@ -896,16 +917,27 @@ final class CheckpointsManagerTests: TestCase {
         )
     }
 
-    private static func offering() -> Offering {
+    private static func offering(products: [StoreProduct] = []) -> Offering {
         return Offering(
             identifier: "offering-id",
             serverDescription: "Test offering",
-            availablePackages: [],
+            availablePackages: products.map { product in
+                Package(
+                    identifier: product.productIdentifier,
+                    packageType: .custom,
+                    storeProduct: product,
+                    offeringIdentifier: "offering-id",
+                    webCheckoutUrl: nil
+                )
+            },
             webCheckoutUrl: nil
         )
     }
 
-    private static func customerInfo(activeEntitlements: [String]) throws -> CustomerInfo {
+    private static func customerInfo(
+        activeEntitlements: [String],
+        purchaseDatesByProductId: [String: Date] = [:]
+    ) throws -> CustomerInfo {
         let infos = Dictionary(uniqueKeysWithValues: activeEntitlements.map { identifier in
             (
                 identifier,
@@ -926,10 +958,25 @@ final class CheckpointsManagerTests: TestCase {
 
         return CustomerInfo(
             entitlements: EntitlementInfos(entitlements: infos),
+            purchaseDatesByProductId: purchaseDatesByProductId,
+            allPurchasedProductIds: Set(purchaseDatesByProductId.keys),
             requestDate: Date(timeIntervalSince1970: 0),
             firstSeen: Date(timeIntervalSince1970: 0),
             originalAppUserId: "test-user"
         )
+    }
+
+    private static func storeProduct(identifier: String) -> StoreProduct {
+        return TestStoreProduct(
+            localizedTitle: identifier,
+            price: 1.99,
+            currencyCode: "USD",
+            localizedPriceString: "$1.99",
+            productIdentifier: identifier,
+            productType: .nonConsumable,
+            localizedDescription: identifier,
+            locale: Locale(identifier: "en_US")
+        ).toStoreProduct()
     }
 
     private static func workflow() -> ResolvedCheckpointWorkflow {

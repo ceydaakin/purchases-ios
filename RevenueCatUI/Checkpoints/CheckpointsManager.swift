@@ -73,6 +73,13 @@ final class CheckpointsManager {
         identifier: String,
         params: CheckpointCallParams
     ) async throws -> CheckpointPresentationOutcome {
+        return try await self.executeCheckpointWithContext(identifier: identifier, params: params).outcome
+    }
+
+    private func executeCheckpointWithContext(
+        identifier: String,
+        params: CheckpointCallParams
+    ) async throws -> CheckpointExecutionResult {
         let globalPaywallPresenter = self.paywallPresenter
         let errorPresentationHandler = self.errorPresentationHandler(
             for: params,
@@ -86,7 +93,7 @@ final class CheckpointsManager {
 
         guard CheckpointIdentifierValidator.isValid(identifier) else {
             Logger.error(CheckpointIdentifierValidator.invalidIdentifierLogMessage(identifier))
-            return .nothingPresented
+            return .init(outcome: .nothingPresented)
         }
 
         switch try await self.resolveCheckpoint(identifier, params) {
@@ -99,21 +106,27 @@ final class CheckpointsManager {
                 initialActiveEntitlementIdentifiers: self.initialActiveEntitlementIdentifiers(),
                 errorPresentationHandler: errorPresentationHandler
             )
-            return try await self.checkpointPresenter.presentWorkflow(presentation)
+            return .init(
+                outcome: try await self.checkpointPresenter.presentWorkflow(presentation),
+                availableProducts: workflow.offerings.all.values.flatMap(\.availablePackages).map(\.storeProduct)
+            )
         case let .matchedOffering(offering):
-            return try await self.checkpointPresenter.presentOffering(
-                params: .init(
-                    checkpointIdentifier: identifier,
-                    customVariables: params.customVariables,
-                    presentationMode: params.presentationMode,
-                    offering: offering,
-                    errorPresentationHandler: errorPresentationHandler
+            return .init(
+                outcome: try await self.checkpointPresenter.presentOffering(
+                    params: .init(
+                        checkpointIdentifier: identifier,
+                        customVariables: params.customVariables,
+                        presentationMode: params.presentationMode,
+                        offering: offering,
+                        errorPresentationHandler: errorPresentationHandler
+                    ),
+                    globalPaywallPresenter: globalPaywallPresenter,
+                    localPaywallPresentationHandler: params.localPaywallPresentationHandler
                 ),
-                globalPaywallPresenter: globalPaywallPresenter,
-                localPaywallPresentationHandler: params.localPaywallPresentationHandler
+                availableProducts: offering.availablePackages.map(\.storeProduct)
             )
         case .noAction:
-            return .nothingPresented
+            return .init(outcome: .nothingPresented)
         }
     }
 
@@ -121,16 +134,20 @@ final class CheckpointsManager {
         identifier: String,
         params: CheckpointCallParams
     ) async -> CheckpointCallbackResult {
-        let initialActiveEntitlementIdentifiers = self.initialActiveEntitlementIdentifiers()
+        let initialCustomerInfo = self.cachedCustomerInfoProvider()
+        let initialActiveEntitlementIdentifiers = initialCustomerInfo.map { Set($0.entitlements.active.keys) }
 
         do {
-            switch try await self.executeCheckpoint(identifier: identifier, params: params) {
+            let execution = try await self.executeCheckpointWithContext(identifier: identifier, params: params)
+            switch execution.outcome {
             case .backedOut:
                 return .suppressed
             case let .completed(customerInfo):
                 return .completed(self.flowResult(
                     customerInfo: customerInfo,
-                    initialActiveEntitlementIdentifiers: initialActiveEntitlementIdentifiers
+                    initialCustomerInfo: initialCustomerInfo,
+                    initialActiveEntitlementIdentifiers: initialActiveEntitlementIdentifiers,
+                    availableProducts: execution.availableProducts
                 ))
             case .failed, .nothingPresented:
                 return .completed(nil)
@@ -144,20 +161,42 @@ final class CheckpointsManager {
 
     private func flowResult(
         customerInfo: CustomerInfo?,
-        initialActiveEntitlementIdentifiers: Set<String>?
+        initialCustomerInfo: CustomerInfo?,
+        initialActiveEntitlementIdentifiers: Set<String>?,
+        availableProducts: [StoreProduct]
     ) -> FlowResult {
         let obtainedEntitlements = customerInfo?
             .obtainedEntitlements(comparedTo: initialActiveEntitlementIdentifiers)
             .map(ObtainedEntitlement.init)
             ?? []
+        let obtainedProducts = customerInfo?
+            .obtainedProducts(comparedTo: initialCustomerInfo, from: availableProducts)
+            ?? []
 
-        return FlowResult(obtainedEntitlements: Set(obtainedEntitlements))
+        return FlowResult(
+            customerInfo: customerInfo,
+            obtainedEntitlements: Set(obtainedEntitlements),
+            obtainedProducts: Set(obtainedProducts)
+        )
     }
 
     private func initialActiveEntitlementIdentifiers() -> Set<String>? {
         return self.cachedCustomerInfoProvider().map { customerInfo in
             Set(customerInfo.entitlements.active.keys)
         }
+    }
+
+}
+
+@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+private struct CheckpointExecutionResult {
+
+    let outcome: CheckpointPresentationOutcome
+    let availableProducts: [StoreProduct]
+
+    init(outcome: CheckpointPresentationOutcome, availableProducts: [StoreProduct] = []) {
+        self.outcome = outcome
+        self.availableProducts = availableProducts
     }
 
 }

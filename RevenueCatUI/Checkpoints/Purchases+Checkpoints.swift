@@ -47,8 +47,8 @@ public extension Purchases {
     /// Passes a checkpoint and calls `onPassed` after a matching flow finishes.
     ///
     /// The callback receives `nil` when the checkpoint has no matching flow or the flow cannot complete. If the user
-    /// backs out of the workflow, the callback is not called. A completed flow returns a result that may contain
-    /// entitlements obtained while it was presented.
+    /// backs out of the workflow, the callback is not called. A completed flow returns the customer information
+    /// available when it finished, together with the entitlements and products obtained while it was presented.
     /// - Parameters:
     ///   - identifier: The checkpoint identifier configured in the RevenueCat dashboard. It must start with a letter,
     ///     contain only ASCII letters, numbers, underscores, and hyphens, and be no more than 255 characters.
