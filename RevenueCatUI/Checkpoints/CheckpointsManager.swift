@@ -69,6 +69,18 @@ final class CheckpointsManager {
         return makeDefaultHandler()
     }
 
+    private func errorPresentationHandler(for params: CheckpointCallParams) -> ErrorPresentationHandler {
+        return self.errorPresentationHandler(
+            for: params,
+            defaultHandler: {
+                let presenter = DefaultErrorPresenter()
+                return { params, completion in
+                    presenter.present(params: params, completion: completion)
+                }
+            }
+        )
+    }
+
     func executeCheckpoint(
         identifier: String,
         params: CheckpointCallParams
@@ -95,15 +107,7 @@ final class CheckpointsManager {
         resolution: CheckpointResolution,
         globalPaywallPresenter: PaywallPresenter?
     ) async throws -> CheckpointPresentationOutcome {
-        let errorPresentationHandler = self.errorPresentationHandler(
-            for: params,
-            defaultHandler: {
-                let presenter = DefaultErrorPresenter()
-                return { params, completion in
-                    presenter.present(params: params, completion: completion)
-                }
-            }
-        )
+        let errorPresentationHandler = self.errorPresentationHandler(for: params)
 
         switch resolution {
         case let .matchedWorkflow(workflow):
@@ -137,24 +141,44 @@ final class CheckpointsManager {
         identifier: String,
         params: CheckpointCallParams
     ) async -> CheckpointCallbackResult {
+        switch await self.checkpointOutcome(identifier: identifier, params: params) {
+        case let .completed(result):
+            return .completed(result)
+        case .suppressed:
+            return .suppressed
+        case let .failed(error):
+            await self.presentCheckpointError(
+                error,
+                identifier: identifier,
+                params: params,
+                stage: .beforeFlowPresentation
+            )
+            return .suppressed
+        }
+    }
+
+    private func checkpointOutcome(
+        identifier: String,
+        params: CheckpointCallParams
+    ) async -> CheckpointOutcome {
         let initialActiveEntitlementIdentifiers = self.initialActiveEntitlementIdentifiers()
         let globalPaywallPresenter = self.paywallPresenter
 
         guard CheckpointIdentifierValidator.isValid(identifier) else {
             Logger.error(CheckpointIdentifierValidator.invalidIdentifierLogMessage(identifier))
-            return .suppressed
+            return .failed(CheckpointError.invalidIdentifier(identifier))
         }
 
         let resolution: CheckpointResolution
         do {
             resolution = try await self.resolveCheckpoint(identifier, params)
         } catch {
-            return .suppressed
+            return .failed(error)
         }
 
         switch resolution {
         case .noAction(.configurationUnavailable):
-            return .suppressed
+            return .failed(CheckpointError.configurationUnavailable)
         case .noAction(.unknownCheckpoint), .noAction(.noMatch):
             return .completed(nil)
         case .matchedWorkflow, .matchedOffering:
@@ -187,6 +211,27 @@ final class CheckpointsManager {
         }
     }
 
+    private func presentCheckpointError(
+        _ error: any Error,
+        identifier: String,
+        params: CheckpointCallParams,
+        stage: ErrorPresentationStage
+    ) async {
+        let errorPresentationHandler = self.errorPresentationHandler(for: params)
+
+        await withCheckedContinuation { continuation in
+            errorPresentationHandler(
+                .init(
+                    checkpointIdentifier: identifier,
+                    error: error,
+                    customVariables: params.customVariables,
+                    stage: stage
+                ),
+                .init { continuation.resume() }
+            )
+        }
+    }
+
     private func flowResult(
         customerInfo: CustomerInfo?,
         initialActiveEntitlementIdentifiers: Set<String>?
@@ -211,4 +256,11 @@ final class CheckpointsManager {
 enum CheckpointCallbackResult {
     case completed(FlowResult?)
     case suppressed
+}
+
+@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+private enum CheckpointOutcome {
+    case completed(FlowResult?)
+    case suppressed
+    case failed(any Error)
 }
