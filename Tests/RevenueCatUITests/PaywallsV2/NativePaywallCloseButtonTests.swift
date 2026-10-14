@@ -176,6 +176,14 @@ final class NativePaywallCloseButtonTests: NativePaywallNavigationTestCase {
         }
     }
 
+    func testAutomaticDetectionReusesLegacyNavigationWithoutWrapping() async {
+        await self.assertNativeClose(expectedNavigationCount: 1) { button in
+            NavigationView {
+                button.modifier(NativePaywallNavigationModifier(requested: true))
+            }.navigationViewStyle(.stack)
+        }
+    }
+
     private func assertNativeClose<Content: View>(
         expected: Bool = true,
         expectedNavigationCount: Int? = nil,
