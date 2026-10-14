@@ -2871,6 +2871,8 @@ func initialDiagnosticsCollectionDecision(
     return remoteConfigEnabled ? .undetermined : .disabled
 }
 
+/// Resolves diagnostics collection with the explicit local configuration taking precedence over
+/// the remote setting. Diagnostics remain disabled when neither setting is provided.
 @available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
 func resolvedDiagnosticsCollectionDecision(
     remoteDiagnosticsEnabled: Bool?,
