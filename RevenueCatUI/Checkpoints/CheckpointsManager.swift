@@ -143,19 +143,22 @@ final class CheckpointsManager {
             case .backedOut:
                 return .suppressed
             case let .completed(customerInfo):
-                return .completed(self.flowResult(
-                    customerInfo: customerInfo,
-                    initialCustomerInfo: initialCustomerInfo,
-                    initialActiveEntitlementIdentifiers: initialActiveEntitlementIdentifiers,
-                    availableProducts: execution.availableProducts
+                return .completed(CheckpointResult(
+                    flow: self.flowResult(
+                        customerInfo: customerInfo,
+                        initialCustomerInfo: initialCustomerInfo,
+                        initialActiveEntitlementIdentifiers: initialActiveEntitlementIdentifiers,
+                        availableProducts: execution.availableProducts
+                    ),
+                    customer: customerInfo
                 ))
             case .failed, .nothingPresented:
-                return .completed(nil)
+                return .completed(CheckpointResult(flow: nil, customer: nil))
             }
         } catch CheckpointError.operationAlreadyInProgress {
             return .suppressed
         } catch {
-            return .completed(nil)
+            return .completed(CheckpointResult(flow: nil, customer: nil))
         }
     }
 
@@ -174,7 +177,6 @@ final class CheckpointsManager {
             ?? []
 
         return FlowResult(
-            customerInfo: customerInfo,
             obtainedEntitlements: Set(obtainedEntitlements),
             obtainedProducts: Set(obtainedProducts)
         )
@@ -203,6 +205,6 @@ private struct CheckpointExecutionResult {
 
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
 enum CheckpointCallbackResult {
-    case completed(FlowResult?)
+    case completed(CheckpointResult)
     case suppressed
 }

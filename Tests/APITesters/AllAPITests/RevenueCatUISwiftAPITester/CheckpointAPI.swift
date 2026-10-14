@@ -32,9 +32,9 @@ func checkCheckpointAPI(_ purchases: Purchases) {
     purchases.checkpoint(
         "test_checkpoint",
         customVariables: literalCustomVariables
-    ) { (_: FlowResult?) in }
+    ) { (_: CheckpointResult) in }
 
-    purchases.checkpoint("test_checkpoint") { (_: FlowResult?) in }
+    purchases.checkpoint("test_checkpoint") { (_: CheckpointResult) in }
     purchases.checkpoint("test_checkpoint", customVariables: explicitCustomVariables) { _ in }
     purchases.checkpoint("test_checkpoint", presentationMode: .modalFullScreen) { _ in }
 
@@ -46,14 +46,24 @@ func checkCheckpointAPI(_ purchases: Purchases) {
     let _: EntitlementInfo? = entitlement?.entitlementInfo
     let product: ObtainedProduct? = nil
     let _: StoreProduct? = product?.product
-    let result: FlowResult? = nil
-    let _: CustomerInfo? = result?.customerInfo
-    let _: Set<ObtainedEntitlement>? = result?.obtainedEntitlements
-    let _: Set<ObtainedProduct>? = result?.obtainedProducts
-    let _: ObtainedEntitlement? = result?.obtainedEntitlement("pro")
-    let _: Bool? = result?.didObtainEntitlement("pro")
-    let _: ObtainedProduct? = result?.obtainedProduct("monthly")
-    let _: Bool? = result?.didObtainProduct("monthly")
+}
+
+private func checkCheckpointResultAPI(_ result: CheckpointResult) {
+    let _: FlowResult? = result.flow
+    let _: CustomerInfo? = result.customer
+    let _: ObtainedEntitlement? = result.obtainedEntitlement("pro")
+    let _: Bool = result.didObtainEntitlement("pro")
+    let _: ObtainedProduct? = result.obtainedProduct("monthly")
+    let _: Bool = result.didObtainProduct("monthly")
+}
+
+private func checkFlowResultAPI(_ result: FlowResult) {
+    let _: Set<ObtainedEntitlement> = result.obtainedEntitlements
+    let _: Set<ObtainedProduct> = result.obtainedProducts
+    let _: ObtainedEntitlement? = result.obtainedEntitlement("pro")
+    let _: Bool = result.didObtainEntitlement("pro")
+    let _: ObtainedProduct? = result.obtainedProduct("monthly")
+    let _: Bool = result.didObtainProduct("monthly")
 }
 
 @MainActor

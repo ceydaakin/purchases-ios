@@ -20,12 +20,6 @@ import Foundation
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
 public struct FlowResult: @unchecked Sendable {
 
-    /// The customer information available when the flow completed.
-    ///
-    /// When the flow performs a purchase, restore, or synchronization, this contains the customer information
-    /// produced by that operation.
-    public let customerInfo: CustomerInfo?
-
     /// Active entitlements present after the flow that were not active in cached customer information before it began.
     ///
     /// The SDK compares the final customer information with the customer information cached before presenting the
@@ -41,11 +35,9 @@ public struct FlowResult: @unchecked Sendable {
     public let obtainedProducts: Set<ObtainedProduct>
 
     init(
-        customerInfo: CustomerInfo?,
         obtainedEntitlements: Set<ObtainedEntitlement> = [],
         obtainedProducts: Set<ObtainedProduct> = []
     ) {
-        self.customerInfo = customerInfo
         self.obtainedEntitlements = obtainedEntitlements
         self.obtainedProducts = obtainedProducts
     }

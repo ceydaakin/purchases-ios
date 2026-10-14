@@ -46,9 +46,9 @@ public extension Purchases {
 
     /// Passes a checkpoint and calls `onPassed` after a matching flow finishes.
     ///
-    /// The callback receives `nil` when the checkpoint has no matching flow or the flow cannot complete. If the user
-    /// backs out of the workflow, the callback is not called. A completed flow returns the customer information
-    /// available when it finished, together with the entitlements and products obtained while it was presented.
+    /// The callback receives a result containing an optional flow result and customer information. If the checkpoint
+    /// has no matching flow or the flow cannot complete, both values are `nil`. If the user backs out of the workflow,
+    /// the callback is not called.
     /// - Parameters:
     ///   - identifier: The checkpoint identifier configured in the RevenueCat dashboard. It must start with a letter,
     ///     contain only ASCII letters, numbers, underscores, and hyphens, and be no more than 255 characters.
@@ -65,7 +65,7 @@ public extension Purchases {
         presentationMode: FlowPresentationMode = .default,
         paywallPresenter: PaywallPresentationHandler? = nil,
         errorPresenter: ErrorPresentationHandler? = nil,
-        _ onPassed: @escaping (FlowResult?) -> Void
+        _ onPassed: @escaping (CheckpointResult) -> Void
     ) {
         let params = CheckpointCallParams(
             customVariables: customVariables,
@@ -84,7 +84,7 @@ private extension Purchases {
     func performCheckpoint(
         _ identifier: String,
         params: CheckpointCallParams,
-        onPassed: @escaping (FlowResult?) -> Void
+        onPassed: @escaping (CheckpointResult) -> Void
     ) {
         Task { @MainActor in
             switch await self.checkpointsManager.checkpointForCallback(
