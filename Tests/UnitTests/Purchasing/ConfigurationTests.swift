@@ -113,6 +113,18 @@ class ConfigurationTests: TestCase {
             .build()
 
         expect(configuration.diagnosticsEnabled) == true
+        expect(configuration.diagnosticsEnabledOverride) == true
+    }
+
+    func testDiagnosticsEnabledDefaultsToNoOverride() throws {
+        guard #available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *) else {
+            throw XCTSkip("Required API is unavailable for this test")
+        }
+
+        let configuration = Configuration.Builder(withAPIKey: "test").build()
+
+        expect(configuration.diagnosticsEnabled) == false
+        expect(configuration.diagnosticsEnabledOverride).to(beNil())
     }
 
     func testIAMEnabled() throws {
@@ -379,6 +391,17 @@ class ConfigurationTests: TestCase {
         }
 
         let lhs = Configuration.Builder(withAPIKey: "test").with(diagnosticsEnabled: true).build()
+        let rhs = Configuration.Builder(withAPIKey: "test").with(diagnosticsEnabled: false).build()
+
+        expect(lhs) != rhs
+    }
+
+    func testDefaultAndExplicitlyDisabledDiagnosticsAreNotEqual() throws {
+        guard #available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *) else {
+            throw XCTSkip("Required API is unavailable for this test")
+        }
+
+        let lhs = Configuration.Builder(withAPIKey: "test").build()
         let rhs = Configuration.Builder(withAPIKey: "test").with(diagnosticsEnabled: false).build()
 
         expect(lhs) != rhs

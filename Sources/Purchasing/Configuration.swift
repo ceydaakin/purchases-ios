@@ -59,7 +59,7 @@ import Foundation
         let showStoreMessagesAutomatically: Bool
         let preferredLocale: String?
         let automaticDeviceIdentifierCollectionEnabled: Bool
-        let diagnosticsEnabled: Bool
+        let diagnosticsEnabled: Bool?
         let iamEnabled: Bool
         let keychainAccessGroup: String?
         let useExternalPurchaseCustomLinks: Bool
@@ -85,7 +85,8 @@ import Foundation
     var automaticDeviceIdentifierCollectionEnabled: Bool {
         self.storage.automaticDeviceIdentifierCollectionEnabled
     }
-    internal var diagnosticsEnabled: Bool { self.storage.diagnosticsEnabled }
+    internal var diagnosticsEnabled: Bool { self.storage.diagnosticsEnabled ?? false }
+    internal var diagnosticsEnabledOverride: Bool? { self.storage.diagnosticsEnabled }
     internal var iamEnabled: Bool { self.storage.iamEnabled }
     internal var keychainAccessGroup: String? { self.storage.keychainAccessGroup }
     internal var useExternalPurchaseCustomLinks: Bool { self.storage.useExternalPurchaseCustomLinks }
@@ -160,7 +161,7 @@ import Foundation
         private(set) var platformInfo: Purchases.PlatformInfo?
         private(set) var entitlementVerificationMode: EntitlementVerificationMode = .informational
         private(set) var showStoreMessagesAutomatically: Bool = true
-        private(set) var diagnosticsEnabled: Bool = false
+        private(set) var diagnosticsEnabled: Bool?
         private(set) var iamEnabled: Bool = false
         private(set) var keychainAccessGroup: String?
         private(set) var storeKitVersion: StoreKitVersion = .default

@@ -32,13 +32,23 @@ private final class DiagnosticsSynchronizerSpy: DiagnosticsSynchronizerType {
 class PurchasesConfiguringTests: BasePurchasesTests {
 
     @available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
-    func testRemoteDiagnosticsSettingOverridesSDKConfiguration() {
-        expect(
-            resolvedDiagnosticsCollectionDecision(remoteDiagnosticsEnabled: false, diagnosticsEnabled: true)
-        ) == .disabled
+    func testExplicitSDKConfigurationOverridesRemoteSetting() {
         expect(
             resolvedDiagnosticsCollectionDecision(remoteDiagnosticsEnabled: true, diagnosticsEnabled: false)
+        ) == .disabled
+        expect(
+            resolvedDiagnosticsCollectionDecision(remoteDiagnosticsEnabled: false, diagnosticsEnabled: true)
         ) == .enabled
+    }
+
+    @available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
+    func testRemoteDiagnosticsSettingCanEnableDiagnosticsWhenSDKConfigurationIsUnspecified() {
+        expect(
+            resolvedDiagnosticsCollectionDecision(remoteDiagnosticsEnabled: true, diagnosticsEnabled: nil)
+        ) == .enabled
+        expect(
+            resolvedDiagnosticsCollectionDecision(remoteDiagnosticsEnabled: false, diagnosticsEnabled: nil)
+        ) == .disabled
     }
 
     @available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
@@ -49,6 +59,9 @@ class PurchasesConfiguringTests: BasePurchasesTests {
         expect(
             resolvedDiagnosticsCollectionDecision(remoteDiagnosticsEnabled: nil, diagnosticsEnabled: true)
         ) == .enabled
+        expect(
+            resolvedDiagnosticsCollectionDecision(remoteDiagnosticsEnabled: nil, diagnosticsEnabled: nil)
+        ) == .disabled
     }
 
     @available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
@@ -59,6 +72,20 @@ class PurchasesConfiguringTests: BasePurchasesTests {
         expect(
             initialDiagnosticsCollectionDecision(remoteConfigEnabled: false)
         ) == .disabled
+    }
+
+    @available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
+    func testInitialDiagnosticsCollectionIsDisabledWhenExplicitlyDisabled() {
+        expect(
+            initialDiagnosticsCollectionDecision(remoteConfigEnabled: true, diagnosticsEnabled: false)
+        ) == .disabled
+    }
+
+    @available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
+    func testInitialDiagnosticsCollectionIsEnabledWhenExplicitlyEnabled() {
+        expect(
+            initialDiagnosticsCollectionDecision(remoteConfigEnabled: true, diagnosticsEnabled: true)
+        ) == .enabled
     }
 
     @available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)

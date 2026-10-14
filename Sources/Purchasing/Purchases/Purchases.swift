@@ -363,7 +363,7 @@ public typealias StartPurchaseBlock = (@escaping PurchaseCompletedBlock) -> Void
                      useExternalPurchaseCustomLinks: Bool = false,
                      enableExternalPurchasesInSimulator: Bool = true,
                      showStoreMessagesAutomatically: Bool,
-                     diagnosticsEnabled: Bool = false,
+                     diagnosticsEnabled: Bool? = nil,
                      preferredLocale: String?,
                      automaticDeviceIdentifierCollectionEnabled: Bool = true,
                      iamEnabled: Bool = false,
@@ -419,11 +419,12 @@ public typealias StartPurchaseBlock = (@escaping PurchaseCompletedBlock) -> Void
                 return DiagnosticsTracker(
                     diagnosticsFileHandler: handler,
                     collectionDecision: initialDiagnosticsCollectionDecision(
-                        remoteConfigEnabled: systemInfo.remoteConfigEnabled
+                        remoteConfigEnabled: systemInfo.remoteConfigEnabled,
+                        diagnosticsEnabled: diagnosticsEnabled
                     )
                 )
             } else {
-                if diagnosticsEnabled {
+                if diagnosticsEnabled == true {
                     Logger.error(Strings.diagnostics.could_not_create_diagnostics_tracker)
                 }
             }
@@ -758,14 +759,15 @@ public typealias StartPurchaseBlock = (@escaping PurchaseCompletedBlock) -> Void
                         tracker: diagnosticsTracker,
                         userDefaults: synchronizedUserDefaults,
                         collectionDecision: initialDiagnosticsCollectionDecision(
-                            remoteConfigEnabled: systemInfo.remoteConfigEnabled
+                            remoteConfigEnabled: systemInfo.remoteConfigEnabled,
+                            diagnosticsEnabled: diagnosticsEnabled
                         )
                     )
                     Task {
                         await diagnosticsFileHandler.updateDelegate(diagnosticsSynchronizer)
                     }
                 } else {
-                    if diagnosticsEnabled {
+                    if diagnosticsEnabled == true {
                         Logger.error(Strings.diagnostics.could_not_create_diagnostics_tracker)
                     }
                     diagnosticsSynchronizer = nil
@@ -2393,7 +2395,7 @@ public extension Purchases {
                 useExternalPurchaseCustomLinks: configuration.useExternalPurchaseCustomLinks,
                 enableExternalPurchasesInSimulator: configuration.enableExternalPurchasesInSimulator,
                 showStoreMessagesAutomatically: configuration.showStoreMessagesAutomatically,
-                diagnosticsEnabled: configuration.diagnosticsEnabled,
+                diagnosticsEnabled: configuration.diagnosticsEnabledOverride,
                 preferredLocale: configuration.preferredLocale,
                 automaticDeviceIdentifierCollectionEnabled: configuration.automaticDeviceIdentifierCollectionEnabled,
                 iamEnabled: configuration.iamEnabled,
@@ -2829,14 +2831,14 @@ extension Purchases: SDKSettingsConfigProviderDelegate {
 
     private func setDiagnosticsCollectionDecision(remoteDiagnosticsEnabled: Bool?) {
         if #available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *) {
-            let isEnabledBySDKConfiguration = self.currentConfiguration?.diagnosticsEnabled ?? false
+            let diagnosticsEnabledOverride = self.currentConfiguration?.diagnosticsEnabledOverride
             let decision = resolvedDiagnosticsCollectionDecision(
                 remoteDiagnosticsEnabled: remoteDiagnosticsEnabled,
-                diagnosticsEnabled: isEnabledBySDKConfiguration
+                diagnosticsEnabled: diagnosticsEnabledOverride
             )
             Logger.debug(Strings.diagnostics.diagnostics_collection_decision(
                 isEnabled: decision == .enabled,
-                isEnabledBySDKConfiguration: remoteDiagnosticsEnabled == nil
+                isEnabledBySDKConfiguration: diagnosticsEnabledOverride != nil || remoteDiagnosticsEnabled == nil
             ))
             self.diagnosticsTracker?.setCollectionDecision(decision)
             Task { [weak self] in
@@ -2859,17 +2861,22 @@ extension Purchases: @unchecked Sendable {}
 
 @available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
 func initialDiagnosticsCollectionDecision(
-    remoteConfigEnabled: Bool
+    remoteConfigEnabled: Bool,
+    diagnosticsEnabled: Bool? = nil
 ) -> DiagnosticsCollectionDecision {
+    if let diagnosticsEnabled {
+        return .init(enabled: diagnosticsEnabled)
+    }
+
     return remoteConfigEnabled ? .undetermined : .disabled
 }
 
 @available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
 func resolvedDiagnosticsCollectionDecision(
     remoteDiagnosticsEnabled: Bool?,
-    diagnosticsEnabled: Bool
+    diagnosticsEnabled: Bool?
 ) -> DiagnosticsCollectionDecision {
-    return .init(enabled: remoteDiagnosticsEnabled ?? diagnosticsEnabled)
+    return .init(enabled: diagnosticsEnabled ?? remoteDiagnosticsEnabled ?? false)
 }
 
 // MARK: Internal
