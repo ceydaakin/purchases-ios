@@ -154,6 +154,14 @@ final class CheckpointsManager {
                 stage: .beforeFlowPresentation
             )
             return .suppressed
+        case let .synchronizationFailed(error):
+            await self.presentCheckpointError(
+                error,
+                identifier: identifier,
+                params: params,
+                stage: .afterFlowPresentation
+            )
+            return .completed(FlowResult(obtainedEntitlements: []))
         }
     }
 
@@ -199,8 +207,8 @@ final class CheckpointsManager {
                     customerInfo: customerInfo,
                     initialActiveEntitlementIdentifiers: initialActiveEntitlementIdentifiers
                 ))
-            case .synchronizationFailed:
-                return .completed(FlowResult(obtainedEntitlements: []))
+            case let .synchronizationFailed(error):
+                return .synchronizationFailed(error)
             case .failed, .nothingPresented:
                 return .suppressed
             }
@@ -263,4 +271,5 @@ private enum CheckpointOutcome {
     case completed(FlowResult?)
     case suppressed
     case failed(any Error)
+    case synchronizationFailed(any Error)
 }
