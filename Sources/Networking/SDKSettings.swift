@@ -33,9 +33,9 @@ struct SDKSettings: Decodable, Equatable {
 
         /// The remotely configured diagnostics preference.
         ///
-        /// This value is set only at the developer's request or with their explicit approval, and is used
-        /// only when `Configuration.Builder.with(diagnosticsEnabled:)` was not called. `nil` leaves
-        /// diagnostics disabled by default.
+        /// This value is set only at the developer's request or with their explicit approval. When present,
+        /// it takes precedence over `Configuration.Builder.with(diagnosticsEnabled:)`. `nil` leaves the local
+        /// configuration unchanged.
         let enabled: Bool?
 
         init(enabled: Bool? = nil) {
